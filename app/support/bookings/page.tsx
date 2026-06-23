@@ -243,6 +243,43 @@ export default function BookingsPage() {
                 </div>
               </div>
 
+              {/* Ambulance info — visible for ambulance bookings */}
+              {(selected.service_type || "").toLowerCase().includes("ambulance") && (
+                <div>
+                  <p className="text-xs font-bold text-gray-400 uppercase tracking-wider mb-2">Ambulance Details</p>
+                  <div className="bg-green-50 border border-green-200 rounded-xl p-3 space-y-1.5 text-sm">
+                    <div className="flex justify-between">
+                      <span className="text-gray-500">Type</span>
+                      <span className="font-semibold">
+                        {(selected as any).is_free_ambulance ? "🆓 Free (NGO)" : "💰 Paid"}
+                      </span>
+                    </div>
+                    {(selected as any).hospital_name && (
+                      <div className="flex justify-between">
+                        <span className="text-gray-500">Hospital</span>
+                        <span className="font-semibold">{(selected as any).hospital_name}</span>
+                      </div>
+                    )}
+                    {(selected as any).ambulance_sub_type && (
+                      <div className="flex justify-between">
+                        <span className="text-gray-500">Amb. Type</span>
+                        <span className="font-semibold uppercase">{(selected as any).ambulance_sub_type}</span>
+                      </div>
+                    )}
+                    {(selected as any).patient_name && (
+                      <div className="flex justify-between">
+                        <span className="text-gray-500">Patient</span>
+                        <span className="font-semibold">{(selected as any).patient_name}</span>
+                      </div>
+                    )}
+                    <div className="flex justify-between text-green-700 font-semibold">
+                      <span>Commission</span>
+                      <span>₹0 — Zero Commission ✅</span>
+                    </div>
+                  </div>
+                </div>
+              )}
+
               {selected.cancellation_reason && (
                 <div>
                   <p className="text-xs font-bold text-gray-400 uppercase tracking-wider mb-2">Cancellation Reason</p>
