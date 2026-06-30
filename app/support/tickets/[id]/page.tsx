@@ -132,7 +132,7 @@ export default function TicketDetailPage() {
       setLoading(false);
     };
     init();
-    const interval = setInterval(fetchMessages, 5000);
+    const interval = setInterval(fetchMessages, 10000);
     return () => clearInterval(interval);
   }, [fetchTicket, fetchMessages]);
 
@@ -455,7 +455,10 @@ export default function TicketDetailPage() {
           )}
           {messages.map(msg => {
             const isSupport = msg.sender_type === "support";
+            const isBot = msg.sender_type === "bot";
             const isSystem = msg.sender_type === "system";
+            const isUser = msg.sender_type === "rider" || msg.sender_type === "driver";
+
             if (isSystem) {
               return (
                 <div key={msg.id} className="text-center">
@@ -465,14 +468,27 @@ export default function TicketDetailPage() {
             }
             return (
               <div key={msg.id} className={`flex ${isSupport ? "justify-end" : "justify-start"}`}>
-                <div className={`max-w-[70%] rounded-2xl px-4 py-2.5 ${isSupport ? "bg-purple-600 text-white" : "bg-gray-100 text-gray-800"}`}>
-                  <div className={`text-[10px] font-semibold mb-1 ${isSupport ? "text-purple-200" : "text-gray-400"}`}>
-                    {msg.sender_name || msg.sender_type}
-                    <span className={`ml-1.5 px-1.5 py-0.5 rounded-full text-[9px] ${isSupport ? "bg-purple-500 text-purple-100" : "bg-gray-200 text-gray-500"}`}>
-                      {msg.sender_type}
+                <div className={`max-w-[70%] rounded-2xl px-4 py-2.5 ${
+                  isSupport ? "bg-purple-600 text-white" :
+                  isBot ? "bg-gray-100 text-gray-800 border border-gray-200" :
+                  "bg-gray-100 text-gray-800"
+                }`}>
+                  <div className={`text-[10px] font-semibold mb-1 ${
+                    isSupport ? "text-purple-200" :
+                    isBot ? "text-gray-500" :
+                    "text-gray-400"
+                  }`}>
+                    {isBot ? "🤖 gogoo Assistant" : (msg.sender_name || msg.sender_type)}
+                    <span className={`ml-1.5 px-1.5 py-0.5 rounded-full text-[9px] ${
+                      isSupport ? "bg-purple-500 text-purple-100" :
+                      isBot ? "bg-blue-100 text-blue-600" :
+                      isUser ? "bg-orange-100 text-orange-600" :
+                      "bg-gray-200 text-gray-500"
+                    }`}>
+                      {isBot ? "AI" : msg.sender_type}
                     </span>
                   </div>
-                  <p className="text-sm leading-relaxed">{msg.message}</p>
+                  <p className="text-sm leading-relaxed whitespace-pre-wrap">{msg.message}</p>
                   <div className={`flex items-center justify-end gap-1 mt-1 ${isSupport ? "text-purple-300" : "text-gray-400"}`}>
                     <span className="text-[10px]">{formatDistanceToNow(new Date(msg.created_at), { addSuffix: true })}</span>
                     {isSupport && (msg.is_read ? <CheckCheck size={11} /> : <Check size={11} />)}

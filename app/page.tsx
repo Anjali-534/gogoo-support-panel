@@ -26,15 +26,7 @@ export default function LoginPage() {
       localStorage.setItem("support_agent_email", email);
       router.push("/support");
     } catch {
-      try {
-        const res2 = await axios.post(`${BASE}/auth/login`, { email, password });
-        const token = res2.data.token || res2.data.access_token;
-        localStorage.setItem("support_admin_token", token);
-        localStorage.setItem("support_agent_email", email);
-        router.push("/support");
-      } catch {
-        toast.error("Invalid credentials");
-      }
+      toast.error("Invalid credentials");
     } finally {
       setLoading(false);
     }

@@ -1,11 +1,12 @@
 "use client";
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
-import { useEffect, useState } from "react";
+import { useEffect, useState, useCallback } from "react";
 import {
   LayoutDashboard, MessageSquare, BookOpen, Users,
   RefreshCw, Settings, LogOut, ExternalLink, Headphones,
 } from "lucide-react";
+import { api } from "@/lib/api";
 
 const NAV = [
   { href: "/support", icon: LayoutDashboard, label: "Overview" },
@@ -20,14 +21,29 @@ export default function SupportLayout({ children }: { children: React.ReactNode 
   const pathname = usePathname();
   const router = useRouter();
   const [agentEmail, setAgentEmail] = useState("");
+  const [unreadCount, setUnreadCount] = useState(0);
+
+  const fetchUnread = useCallback(async () => {
+    try {
+      const res = await api.get("/gogoo/support/unread-count");
+      setUnreadCount(res.data.unread || 0);
+    } catch {}
+  }, []);
 
   useEffect(() => {
     if (typeof window !== "undefined") {
-      const token = localStorage.getItem("support_admin_token") || localStorage.getItem("access_token");
+      const token = localStorage.getItem("support_admin_token");
       if (!token) { router.push("/"); return; }
       setAgentEmail(localStorage.getItem("support_agent_email") || "Agent");
+      fetchUnread();
     }
   }, []);
+
+  // Poll unread count every 30s
+  useEffect(() => {
+    const interval = setInterval(fetchUnread, 30000);
+    return () => clearInterval(interval);
+  }, [fetchUnread]);
 
   const logout = () => {
     localStorage.removeItem("support_admin_token");
@@ -74,6 +90,7 @@ export default function SupportLayout({ children }: { children: React.ReactNode 
               href === "/support"
                 ? pathname === "/support"
                 : pathname === href || pathname.startsWith(href + "/");
+            const isTickets = href === "/support/tickets";
             return (
               <Link
                 key={href}
@@ -85,7 +102,12 @@ export default function SupportLayout({ children }: { children: React.ReactNode 
                 }`}
               >
                 <Icon size={17} className="flex-shrink-0" />
-                {label}
+                <span className="flex-1">{label}</span>
+                {isTickets && unreadCount > 0 && (
+                  <span className="bg-red-500 text-white text-xs rounded-full px-1.5 py-0.5 ml-auto leading-none">
+                    {unreadCount}
+                  </span>
+                )}
               </Link>
             );
           })}
