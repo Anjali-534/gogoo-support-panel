@@ -1,10 +1,10 @@
 "use client";
-import { useEffect, useState, useCallback, Suspense } from "react";
+import { useEffect, useState, useCallback, useRef, Suspense } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { api } from "@/lib/api";
 import toast from "react-hot-toast";
 import { formatDistanceToNow } from "date-fns";
-import { Plus, Eye } from "lucide-react";
+import { Plus, Eye, MessageSquare } from "lucide-react";
 import Pagination from "@/components/Pagination";
 
 interface Ticket {
@@ -22,6 +22,7 @@ interface Ticket {
   driver_phone: string;
   assigned_to: string | null;
   created_at: string;
+  unread_count?: number;
 }
 
 const PRIORITY_COLORS: Record<string, string> = {
@@ -42,6 +43,8 @@ const TYPE_COLORS: Record<string, string> = {
   rider_complaint: "bg-orange-50 text-orange-600",
   driver_complaint: "bg-yellow-50 text-yellow-700",
   refund_request: "bg-green-50 text-green-600",
+  in_app_chat: "bg-purple-50 text-purple-600",
+  sos: "bg-red-600 text-white",
   other: "bg-gray-50 text-gray-600",
 };
 
@@ -62,16 +65,36 @@ function TicketsContent() {
     type: "payment_issue", priority: "medium", subject: "", description: "", raised_by: "rider",
   });
   const [creating, setCreating] = useState(false);
+  const prevUnreadRef = useRef(0);
 
-  const fetchTickets = useCallback(async () => {
-    setLoading(true);
+  const fetchTickets = useCallback(async (silent = false) => {
+    if (!silent) setLoading(true);
     try {
       const params: Record<string, string> = {};
       if (status) params.status = status;
       if (priority) params.priority = priority;
       if (type) params.type = type;
-      const res = await api.get("/gogoo/support/tickets", { params });
-      setTickets(res.data.tickets || []);
+      const [ticketsRes, unreadRes] = await Promise.all([
+        api.get("/gogoo/support/tickets", { params }),
+        api.get("/gogoo/support/unread-count").catch(() => ({ data: { unread: 0 } })),
+      ]);
+      setTickets(ticketsRes.data.tickets || []);
+
+      // Tab title notification for new unread messages
+      const unread = unreadRes.data.unread || 0;
+      if (unread > 0) {
+        document.title = `(${unread}) Support Panel`;
+      } else {
+        document.title = "Support Panel";
+      }
+      if (unread > prevUnreadRef.current && prevUnreadRef.current !== -1) {
+        // New message arrived — flash the title
+        document.title = `🔴 New message! (${unread}) Support Panel`;
+        setTimeout(() => {
+          document.title = unread > 0 ? `(${unread}) Support Panel` : "Support Panel";
+        }, 3000);
+      }
+      prevUnreadRef.current = unread;
     } catch {
       setTickets([]);
     } finally {
@@ -79,18 +102,34 @@ function TicketsContent() {
     }
   }, [status, priority, type]);
 
-  useEffect(() => { fetchTickets(); }, [fetchTickets]);
+  useEffect(() => {
+    prevUnreadRef.current = -1; // skip first-load flash
+    fetchTickets();
+  }, [fetchTickets]);
 
-  const filtered = tickets.filter(t => {
-    if (!search) return true;
-    const q = search.toLowerCase();
-    return (
-      t.ticket_number?.toLowerCase().includes(q) ||
-      t.subject?.toLowerCase().includes(q) ||
-      t.rider_name?.toLowerCase().includes(q) ||
-      t.rider_phone?.includes(q)
-    );
-  });
+  // Auto-refresh every 10s
+  useEffect(() => {
+    const interval = setInterval(() => fetchTickets(true), 10000);
+    return () => clearInterval(interval);
+  }, [fetchTickets]);
+
+  const isSOS = (t: Ticket) => t.type === "sos" || t.subject?.startsWith("🚨");
+
+  const filtered = tickets
+    .filter(t => {
+      if (!search) return true;
+      const q = search.toLowerCase();
+      return (
+        t.ticket_number?.toLowerCase().includes(q) ||
+        t.subject?.toLowerCase().includes(q) ||
+        t.rider_name?.toLowerCase().includes(q) ||
+        t.rider_phone?.includes(q)
+      );
+    })
+    // SOS tickets always float to the top, regardless of the active filter —
+    // Array.sort is stable, so this only reorders SOS vs. non-SOS and leaves
+    // the backend's priority/created_at ordering untouched within each group.
+    .sort((a, b) => Number(isSOS(b)) - Number(isSOS(a)));
 
   const paginated = filtered.slice((page - 1) * PAGE_SIZE, page * PAGE_SIZE);
 
@@ -133,10 +172,10 @@ function TicketsContent() {
         </div>
         <div className="w-px h-6 bg-gray-200" />
         <div className="flex gap-1 flex-wrap">
-          {["", "payment_issue", "booking_issue", "rider_complaint", "refund_request", "other"].map(tp => (
+          {["", "sos", "in_app_chat", "payment_issue", "booking_issue", "rider_complaint", "refund_request", "other"].map(tp => (
             <button key={tp} onClick={() => { setType(tp); setPage(1); }}
-              className={`px-3 py-1.5 rounded-lg text-xs font-medium transition ${type === tp ? "bg-purple-600 text-white" : "bg-gray-100 text-gray-600 hover:bg-gray-200"}`}>
-              {tp === "" ? "All Types" : tp.replace(/_/g, " ").replace(/\b\w/g, c => c.toUpperCase())}
+              className={`px-3 py-1.5 rounded-lg text-xs font-medium transition ${type === tp ? "bg-purple-600 text-white" : tp === "sos" ? "bg-red-100 text-red-700 hover:bg-red-200" : "bg-gray-100 text-gray-600 hover:bg-gray-200"}`}>
+              {tp === "" ? "All Types" : tp === "sos" ? "🚨 SOS" : tp === "in_app_chat" ? "💬 In-App Chat" : tp.replace(/_/g, " ").replace(/\b\w/g, c => c.toUpperCase())}
             </button>
           ))}
         </div>
@@ -176,19 +215,35 @@ function TicketsContent() {
               : paginated.length === 0
               ? <tr><td colSpan={9} className="px-4 py-10 text-center text-gray-400">No tickets found</td></tr>
               : paginated.map(t => (
-                  <tr key={t.id} className="hover:bg-purple-50 transition cursor-pointer" onClick={() => router.push(`/support/tickets/${t.id}`)}>
+                  <tr key={t.id}
+                    className={`transition cursor-pointer ${isSOS(t) ? "bg-red-50 hover:bg-red-100 animate-pulse" : "hover:bg-purple-50"}`}
+                    onClick={() => router.push(`/support/tickets/${t.id}`)}
+                  >
                     <td className="px-4 py-3">
                       <div className="flex items-center gap-1.5">
                         <span className={`w-2 h-2 rounded-full flex-shrink-0 ${t.priority === "urgent" ? "bg-red-500" : t.priority === "high" ? "bg-orange-400" : t.priority === "medium" ? "bg-yellow-400" : "bg-gray-300"}`} />
                         <span className="font-mono text-xs text-gray-600">{t.ticket_number}</span>
+                        {isSOS(t) && (
+                          <span className="flex-shrink-0 bg-red-600 text-white text-[10px] font-bold rounded-full px-1.5 py-0.5">
+                            🚨 SOS
+                          </span>
+                        )}
+                        {t.type === "in_app_chat" && <MessageSquare size={11} className="text-purple-500 flex-shrink-0" />}
                       </div>
                     </td>
                     <td className="px-4 py-3 max-w-[200px]">
-                      <span className="truncate block text-gray-800 font-medium">{t.subject?.slice(0, 40)}{(t.subject?.length || 0) > 40 ? "…" : ""}</span>
+                      <div className="flex items-center gap-1.5">
+                        <span className="truncate block text-gray-800 font-medium">{t.subject?.slice(0, 40)}{(t.subject?.length || 0) > 40 ? "…" : ""}</span>
+                        {(t.unread_count ?? 0) > 0 && (
+                          <span className="flex-shrink-0 bg-red-500 text-white text-[10px] font-bold rounded-full min-w-[18px] h-[18px] flex items-center justify-center px-1">
+                            {t.unread_count}
+                          </span>
+                        )}
+                      </div>
                     </td>
                     <td className="px-4 py-3">
                       <span className={`text-[10px] px-2 py-0.5 rounded-full font-medium ${TYPE_COLORS[t.type] || "bg-gray-50 text-gray-600"}`}>
-                        {t.type?.replace(/_/g, " ")}
+                        {t.type === "sos" ? "🚨 SOS" : t.type === "in_app_chat" ? "💬 In-App Chat" : t.type?.replace(/_/g, " ")}
                       </span>
                     </td>
                     <td className="px-4 py-3 text-xs text-gray-600">
