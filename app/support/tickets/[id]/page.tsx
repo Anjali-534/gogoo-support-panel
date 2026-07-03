@@ -51,12 +51,38 @@ interface Booking {
   service_name?: string;
   pickup?: { lat: number; lng: number; address: string };
   drop?: { lat: number; lng: number; address: string };
-  driver?: { lat?: number; lng?: number; name?: string; rating?: number };
+  driver?: { lat?: number; lng?: number; name?: string; rating?: number; updated_at?: string };
   estimated_fare?: number;
   final_fare?: number;
   ride_otp?: string;
   started_at?: string;
   completed_at?: string;
+}
+
+const DRIVER_STALE_MS = 2 * 60 * 1000;
+
+function formatAgo(ms: number): string {
+  const secs = Math.round(ms / 1000);
+  if (secs < 60) return `${secs}s ago`;
+  return `${Math.round(secs / 60)}m ago`;
+}
+
+function haversineKm(aLat: number, aLng: number, bLat: number, bLng: number) {
+  const R = 6371, dLat = ((bLat - aLat) * Math.PI) / 180, dLng = ((bLng - aLng) * Math.PI) / 180;
+  const a = Math.sin(dLat / 2) ** 2 + Math.cos(aLat * Math.PI / 180) * Math.cos(bLat * Math.PI / 180) * Math.sin(dLng / 2) ** 2;
+  return R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+}
+
+// Server-side proxy — never exposes OLA_MAPS_KEY to the panel, and caches
+// by rounded coordinate so repeat opens of the driver popup don't re-hit
+// Ola. Called only when the popup is opened, never pre-fetched.
+async function fetchAddress(lat: number, lng: number): Promise<string> {
+  try {
+    const res = await api.get("/gogoo/geocode/reverse", { params: { lat, lng }, timeout: 10000 });
+    return res.data?.address || "";
+  } catch {
+    return "";
+  }
 }
 
 const QUICK_REPLIES = [
@@ -102,6 +128,10 @@ export default function TicketDetailPage() {
   const [cancelReason, setCancelReason] = useState("");
   const [blockReason, setBlockReason] = useState("");
   const chatBottomRef = useRef<HTMLDivElement>(null);
+  // Reverse-geocoded address for the driver marker — only one driver per
+  // booking, so a single slot (not a map) is enough. Reused unless the
+  // driver has moved more than ~100m since the last lookup.
+  const driverGeoRef = useRef<{ address: string; lat: number; lng: number } | null>(null);
   const agentEmail = typeof window !== "undefined" ? localStorage.getItem("support_agent_email") || "support@gogoo.in" : "support@gogoo.in";
 
   const fetchTicket = useCallback(async () => {
@@ -267,6 +297,39 @@ export default function TicketDetailPage() {
 
   const isActiveBooking = booking && !["completed", "cancelled"].includes(booking.status);
 
+  let driverMarker: OlaMarker | null = null;
+  if (booking?.driver?.lat != null && booking?.driver?.lng != null) {
+    const dLat = booking.driver.lat;
+    const dLng = booking.driver.lng;
+    const cached = driverGeoRef.current;
+    const hasFreshGeo = !!cached && haversineKm(cached.lat, cached.lng, dLat, dLng) <= 0.1;
+    const geoLine = hasFreshGeo ? `📍 ${cached!.address || "Location unavailable"}` : "📍 Locating…";
+    const updatedMs = booking.driver.updated_at ? Date.now() - new Date(booking.driver.updated_at).getTime() : null;
+    const updatedAgo = updatedMs != null ? `Updated ${formatAgo(updatedMs)}${updatedMs > DRIVER_STALE_MS ? " (STALE)" : ""}` : "Updated —";
+    driverMarker = {
+      lng: dLng, lat: dLat, color: "#3B82F6", label: "🚗",
+      popup: `
+        <div style="font-family:system-ui;min-width:170px;padding:4px">
+          <div style="font-weight:800;font-size:13px;margin-bottom:4px">🚗 ${booking.driver.name || "Driver"}</div>
+          <div id="geo-driver-marker" style="color:#374151;font-size:12px;margin-top:4px;line-height:1.4">${geoLine}</div>
+          <div style="color:#9CA3AF;font-size:10px;margin-top:3px">
+            ${dLat.toFixed(4)}, ${dLng.toFixed(4)} ·
+            <a href="#" onclick="navigator.clipboard.writeText('${dLat.toFixed(6)},${dLng.toFixed(6)}');this.textContent='Copied';setTimeout(()=>{this.textContent='Copy'},1200);return false;" style="color:#9CA3AF;text-decoration:underline;cursor:pointer">Copy</a> ·
+            <a href="https://www.google.com/maps?q=${dLat},${dLng}" target="_blank" rel="noopener noreferrer" style="color:#7C3AED;text-decoration:underline">Open in Maps</a>
+          </div>
+          <div style="color:#9CA3AF;font-size:10px;margin-top:2px">${updatedAgo}</div>
+        </div>`,
+      onPopupOpen: () => {
+        if (hasFreshGeo) return;
+        fetchAddress(dLat, dLng).then((address) => {
+          driverGeoRef.current = { address, lat: dLat, lng: dLng };
+          const el = document.getElementById("geo-driver-marker");
+          if (el) el.textContent = address ? `📍 ${address}` : "📍 Location unavailable";
+        });
+      },
+    };
+  }
+
   return (
     <div className="h-[calc(100vh-130px)] flex gap-5">
       {/* LEFT: Ticket Info (40%) */}
@@ -352,9 +415,7 @@ export default function TicketDetailPage() {
                   markers={[
                     { lng: booking.pickup.lng, lat: booking.pickup.lat, color: '#10B981', label: 'P', popup: '<b>Pickup</b>' },
                     { lng: booking.drop.lng, lat: booking.drop.lat, color: '#FF6B2B', label: 'D', popup: '<b>Drop</b>' },
-                    ...(booking.driver?.lat != null && booking.driver?.lng != null
-                      ? [{ lng: booking.driver.lng, lat: booking.driver.lat, color: '#3B82F6', label: '🚗', popup: `<b>${booking.driver.name || 'Driver'}</b>` } as OlaMarker]
-                      : []),
+                    ...(driverMarker ? [driverMarker] : []),
                   ]}
                 />
               </div>

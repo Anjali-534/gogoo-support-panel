@@ -6,7 +6,13 @@ import "maplibre-gl/dist/maplibre-gl.css";
 const OLA_KEY = process.env.NEXT_PUBLIC_OLA_MAPS_KEY || "";
 const STYLE_URL = `https://api.olamaps.io/tiles/vector/v1/styles/default-light-standard/style.json?api_key=${OLA_KEY}`;
 
-export type OlaMarker = { lng: number; lat: number; color?: string; label?: string; popup?: string };
+export type OlaMarker = {
+  lng: number; lat: number; color?: string; label?: string; popup?: string;
+  // Fires when this marker's popup is opened (i.e. on click) — lets callers
+  // lazily fill in popup content (e.g. reverse-geocoded address) without
+  // fetching for every marker up front.
+  onPopupOpen?: () => void;
+};
 
 type OlaMapProps = {
   center?: [number, number]; // [lng, lat]
@@ -90,7 +96,11 @@ export default function OlaMap({
         el.style.cssText = `width:28px;height:28px;border-radius:50%;background:${m.color || "#FF6B2B"};border:3px solid white;box-shadow:0 2px 8px rgba(0,0,0,0.25);display:flex;align-items:center;justify-content:center;font-size:13px;color:#fff;font-weight:800`;
         if (m.label) el.textContent = m.label;
         const marker = new maplibregl.Marker({ element: el }).setLngLat([m.lng, m.lat]);
-        if (m.popup) marker.setPopup(new maplibregl.Popup({ offset: 16 }).setHTML(m.popup));
+        if (m.popup) {
+          const popup = new maplibregl.Popup({ offset: 16 }).setHTML(m.popup);
+          if (m.onPopupOpen) popup.on("open", m.onPopupOpen);
+          marker.setPopup(popup);
+        }
         marker.addTo(map);
         markersRef.current.push(marker);
         bounds.extend([m.lng, m.lat]);
