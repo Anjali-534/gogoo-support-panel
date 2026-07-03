@@ -8,6 +8,7 @@ import {
   ArrowLeft, Copy, Phone, User, Clipboard, ChevronDown,
   Send, CheckCheck, Check,
 } from "lucide-react";
+import OlaMap, { decodePolyline, OlaMarker } from "@/components/OlaMap";
 
 interface Ticket {
   id: string;
@@ -47,14 +48,15 @@ interface Message {
 interface Booking {
   id: string;
   status: string;
-  service_type: string;
-  pickup_address: string;
-  drop_address: string;
-  fare: number;
-  otp_verified: boolean;
-  created_at: string;
-  driver_name: string;
-  driver_rating: number;
+  service_name?: string;
+  pickup?: { lat: number; lng: number; address: string };
+  drop?: { lat: number; lng: number; address: string };
+  driver?: { lat?: number; lng?: number; name?: string; rating?: number };
+  estimated_fare?: number;
+  final_fare?: number;
+  ride_otp?: string;
+  started_at?: string;
+  completed_at?: string;
 }
 
 const QUICK_REPLIES = [
@@ -86,6 +88,7 @@ export default function TicketDetailPage() {
   const [ticket, setTicket] = useState<Ticket | null>(null);
   const [messages, setMessages] = useState<Message[]>([]);
   const [booking, setBooking] = useState<Booking | null>(null);
+  const [routeLine, setRouteLine] = useState<[number, number][] | undefined>(undefined);
   const [loading, setLoading] = useState(true);
   const [message, setMessage] = useState("");
   const [sending, setSending] = useState(false);
@@ -121,7 +124,14 @@ export default function TicketDetailPage() {
   const fetchBooking = useCallback(async (bookingId: string) => {
     try {
       const res = await api.get(`/gogoo/bookings/${bookingId}`);
-      setBooking(res.data);
+      const data: Booking = res.data;
+      setBooking(data);
+      if (data.pickup && data.drop) {
+        try {
+          const rRes = await api.get(`/gogoo/route`, { params: { from: `${data.pickup.lat},${data.pickup.lng}`, to: `${data.drop.lat},${data.drop.lng}` } });
+          if (rRes.data?.polyline) setRouteLine(decodePolyline(rRes.data.polyline));
+        } catch {}
+      }
     } catch {}
   }, []);
 
@@ -326,13 +336,29 @@ export default function TicketDetailPage() {
             <p className="text-xs font-bold text-gray-400 uppercase tracking-wider">Related Booking</p>
             <div className="text-xs text-gray-500 space-y-1.5">
               <div className="flex justify-between"><span>Booking ID</span><span className="font-mono text-gray-700">#{ticket.booking_id?.slice(0, 8)}</span></div>
-              <div className="flex justify-between"><span>Service</span><span className="font-medium text-gray-700">{booking.service_type || "Cab"}</span></div>
+              <div className="flex justify-between"><span>Service</span><span className="font-medium text-gray-700">{booking.service_name || "Cab"}</span></div>
               <div className="flex justify-between"><span>Status</span><span className={`px-1.5 py-0.5 rounded-full text-[10px] font-medium ${booking.status === "completed" ? "bg-green-100 text-green-700" : booking.status === "cancelled" ? "bg-red-100 text-red-700" : "bg-blue-100 text-blue-700"}`}>{booking.status}</span></div>
-              {booking.pickup_address && <div className="flex justify-between"><span>From</span><span className="text-gray-700 text-right max-w-[140px] truncate">{booking.pickup_address}</span></div>}
-              {booking.drop_address && <div className="flex justify-between"><span>To</span><span className="text-gray-700 text-right max-w-[140px] truncate">{booking.drop_address}</span></div>}
-              {booking.fare > 0 && <div className="flex justify-between"><span>Fare</span><span className="font-semibold text-gray-800">₹{booking.fare}</span></div>}
-              {booking.created_at && <div className="flex justify-between"><span>Date</span><span className="text-gray-600">{format(new Date(booking.created_at), "MMM d, yyyy h:mm a")}</span></div>}
+              {booking.pickup?.address && <div className="flex justify-between"><span>From</span><span className="text-gray-700 text-right max-w-[140px] truncate">{booking.pickup.address}</span></div>}
+              {booking.drop?.address && <div className="flex justify-between"><span>To</span><span className="text-gray-700 text-right max-w-[140px] truncate">{booking.drop.address}</span></div>}
+              {(booking.final_fare || booking.estimated_fare || 0) > 0 && <div className="flex justify-between"><span>Fare</span><span className="font-semibold text-gray-800">₹{booking.final_fare || booking.estimated_fare}</span></div>}
+              {booking.started_at && <div className="flex justify-between"><span>Started</span><span className="text-gray-600">{format(new Date(booking.started_at), "MMM d, yyyy h:mm a")}</span></div>}
             </div>
+            {booking.pickup && booking.drop && (
+              <div className="pt-2">
+                <OlaMap
+                  className="w-full h-48 rounded-xl overflow-hidden"
+                  fitToMarkers
+                  route={routeLine || [[booking.pickup.lng, booking.pickup.lat], [booking.drop.lng, booking.drop.lat]]}
+                  markers={[
+                    { lng: booking.pickup.lng, lat: booking.pickup.lat, color: '#10B981', label: 'P', popup: '<b>Pickup</b>' },
+                    { lng: booking.drop.lng, lat: booking.drop.lat, color: '#FF6B2B', label: 'D', popup: '<b>Drop</b>' },
+                    ...(booking.driver?.lat != null && booking.driver?.lng != null
+                      ? [{ lng: booking.driver.lng, lat: booking.driver.lat, color: '#3B82F6', label: '🚗', popup: `<b>${booking.driver.name || 'Driver'}</b>` } as OlaMarker]
+                      : []),
+                  ]}
+                />
+              </div>
+            )}
           </div>
         )}
 
