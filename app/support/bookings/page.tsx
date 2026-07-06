@@ -15,7 +15,13 @@ interface Booking {
   fare: number;
   created_at: string;
   otp_verified: boolean;
-  cancellation_reason: string;
+  cancel_reason: string;
+  cancelled_by: string;
+  cancellation_fee: number;
+  accepted_at: string | null;
+  cancelled_at: string | null;
+  is_scheduled: boolean;
+  scheduled_at: string | null;
   rider_name: string;
   rider_phone: string;
   driver_name: string;
@@ -25,11 +31,18 @@ interface Booking {
 }
 
 const STATUS_COLORS: Record<string, string> = {
+  scheduled: "bg-sky-100 text-sky-700",
   completed: "bg-green-100 text-green-700",
   cancelled: "bg-red-100 text-red-700",
   active: "bg-blue-100 text-blue-700",
   pending: "bg-yellow-100 text-yellow-700",
   accepted: "bg-purple-100 text-purple-700",
+};
+
+const fmtDuration = (seconds: number) => {
+  if (seconds < 60) return `${seconds}s`;
+  const mins = Math.floor(seconds / 60);
+  return mins < 60 ? `${mins}m ${seconds % 60}s` : `${Math.floor(mins / 60)}h ${mins % 60}m`;
 };
 
 const SOURCE_COLORS: Record<string, string> = {
@@ -119,7 +132,7 @@ export default function BookingsPage() {
           onChange={e => { setSearch(e.target.value); setPage(1); }}
         />
         <div className="flex gap-1">
-          {["", "pending", "accepted", "active", "completed", "cancelled"].map(s => (
+          {["", "scheduled", "pending", "accepted", "active", "completed", "cancelled"].map(s => (
             <button key={s} onClick={() => { setStatusFilter(s); setPage(1); }}
               className={`px-3 py-1.5 rounded-lg text-xs font-medium transition ${statusFilter === s ? "bg-purple-600 text-white" : "bg-gray-100 text-gray-600 hover:bg-gray-200"}`}>
               {s === "" ? "All" : s.charAt(0).toUpperCase() + s.slice(1)}
@@ -255,6 +268,19 @@ export default function BookingsPage() {
                 </div>
               </div>
 
+              {/* Scheduled ride info */}
+              {selected.is_scheduled && selected.scheduled_at && (
+                <div>
+                  <p className="text-xs font-bold text-gray-400 uppercase tracking-wider mb-2">Scheduled Pickup</p>
+                  <div className="bg-sky-50 border border-sky-200 rounded-xl p-3 text-sm">
+                    <p className="font-semibold text-sky-800">{format(new Date(selected.scheduled_at), "MMM d, yyyy h:mm a")}</p>
+                    {selected.status === "scheduled" && (
+                      <p className="text-xs text-sky-500 mt-1">Not yet dispatched — driver matching starts ~15 min before pickup</p>
+                    )}
+                  </div>
+                </div>
+              )}
+
               {/* Ambulance info — visible for ambulance bookings */}
               {(selected.service_type || "").toLowerCase().includes("ambulance") && (
                 <div>
@@ -292,10 +318,28 @@ export default function BookingsPage() {
                 </div>
               )}
 
-              {selected.cancellation_reason && (
+              {selected.status === "cancelled" && (
                 <div>
-                  <p className="text-xs font-bold text-gray-400 uppercase tracking-wider mb-2">Cancellation Reason</p>
-                  <p className="text-sm text-gray-700 bg-red-50 rounded-lg px-3 py-2">{selected.cancellation_reason}</p>
+                  <p className="text-xs font-bold text-gray-400 uppercase tracking-wider mb-2">Cancellation</p>
+                  <div className="bg-red-50 rounded-lg px-3 py-2 space-y-1.5 text-sm">
+                    {selected.cancel_reason && <p className="text-gray-700">{selected.cancel_reason}</p>}
+                    <div className="flex justify-between">
+                      <span className="text-gray-500">Cancelled by</span>
+                      <span className="font-medium capitalize">{selected.cancelled_by || "—"}</span>
+                    </div>
+                    <div className="flex justify-between">
+                      <span className="text-gray-500">Cancellation fee</span>
+                      <span className="font-medium">{selected.cancellation_fee > 0 ? `₹${selected.cancellation_fee}` : "Free"}</span>
+                    </div>
+                    {selected.accepted_at && selected.cancelled_at && (
+                      <div className="flex justify-between">
+                        <span className="text-gray-500">Accept → cancel</span>
+                        <span className="font-medium">
+                          {fmtDuration(Math.round((new Date(selected.cancelled_at).getTime() - new Date(selected.accepted_at).getTime()) / 1000))}
+                        </span>
+                      </div>
+                    )}
+                  </div>
                 </div>
               )}
 
