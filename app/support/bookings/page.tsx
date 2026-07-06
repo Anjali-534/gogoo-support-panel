@@ -21,6 +21,7 @@ interface Booking {
   driver_name: string;
   driver_phone: string;
   driver_rating: number;
+  source: string;
 }
 
 const STATUS_COLORS: Record<string, string> = {
@@ -29,6 +30,11 @@ const STATUS_COLORS: Record<string, string> = {
   active: "bg-blue-100 text-blue-700",
   pending: "bg-yellow-100 text-yellow-700",
   accepted: "bg-purple-100 text-purple-700",
+};
+
+const SOURCE_COLORS: Record<string, string> = {
+  app: "bg-indigo-100 text-indigo-800",
+  website: "bg-teal-100 text-teal-800",
 };
 
 const PAGE_SIZE = 50;
@@ -127,7 +133,7 @@ export default function BookingsPage() {
         <table className="w-full text-sm">
           <thead className="bg-gray-50 border-b border-gray-100">
             <tr>
-              {["Booking ID", "Service", "Rider", "Driver", "Route", "Fare", "Status", "Time", "Actions"].map(h => (
+              {["Booking ID", "Service", "Rider", "Driver", "Route", "Fare", "Status", "Source", "Time", "Actions"].map(h => (
                 <th key={h} className="px-4 py-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider">{h}</th>
               ))}
             </tr>
@@ -136,13 +142,13 @@ export default function BookingsPage() {
             {loading
               ? Array(8).fill(0).map((_, i) => (
                   <tr key={i} className="animate-pulse">
-                    {Array(9).fill(0).map((__, j) => (
+                    {Array(10).fill(0).map((__, j) => (
                       <td key={j} className="px-4 py-3"><div className="h-4 bg-gray-100 rounded" /></td>
                     ))}
                   </tr>
                 ))
               : paginated.length === 0
-              ? <tr><td colSpan={9} className="px-4 py-10 text-center text-gray-400">No bookings found</td></tr>
+              ? <tr><td colSpan={10} className="px-4 py-10 text-center text-gray-400">No bookings found</td></tr>
               : paginated.map(b => (
                   <tr key={b.id} className="hover:bg-purple-50 transition cursor-pointer" onClick={() => setSelected(b)}>
                     <td className="px-4 py-3 font-mono text-xs text-gray-500">#{b.id?.slice(0, 8)}</td>
@@ -163,6 +169,11 @@ export default function BookingsPage() {
                     <td className="px-4 py-3">
                       <span className={`text-[10px] px-2 py-1 rounded-full font-medium ${STATUS_COLORS[b.status] || "bg-gray-100 text-gray-600"}`}>
                         {b.status}
+                      </span>
+                    </td>
+                    <td className="px-4 py-3">
+                      <span className={`text-[10px] px-2 py-1 rounded-full font-medium ${SOURCE_COLORS[b.source] || "bg-indigo-100 text-indigo-800"}`}>
+                        {b.source === "website" ? "Website" : "App"}
                       </span>
                     </td>
                     <td className="px-4 py-3 text-xs text-gray-400">
@@ -205,6 +216,7 @@ export default function BookingsPage() {
                 <div className="space-y-2 text-sm">
                   <div className="flex justify-between"><span className="text-gray-500">ID</span><span className="font-mono text-xs">{selected.id}</span></div>
                   <div className="flex justify-between"><span className="text-gray-500">Status</span><span className={`text-xs px-2 py-0.5 rounded-full font-medium ${STATUS_COLORS[selected.status] || ""}`}>{selected.status}</span></div>
+                  <div className="flex justify-between"><span className="text-gray-500">Source</span><span className={`text-xs px-2 py-0.5 rounded-full font-medium ${SOURCE_COLORS[selected.source] || "bg-indigo-100 text-indigo-800"}`}>{selected.source === "website" ? "Website" : "App"}</span></div>
                   <div className="flex justify-between"><span className="text-gray-500">Service</span><span className="capitalize">{selected.service_type || "Cab"}</span></div>
                   <div className="flex justify-between"><span className="text-gray-500">Fare</span><span className="font-semibold">₹{selected.fare || 0}</span></div>
                   <div className="flex justify-between"><span className="text-gray-500">OTP</span><span>{selected.otp_verified ? "✅ Verified" : "❌ Not verified"}</span></div>
