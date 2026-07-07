@@ -4,7 +4,7 @@ import { usePathname, useRouter } from "next/navigation";
 import { useEffect, useState, useCallback } from "react";
 import {
   LayoutDashboard, MessageSquare, BookOpen, Users,
-  RefreshCw, Settings, LogOut, ExternalLink, Headphones,
+  RefreshCw, Settings, LogOut, ExternalLink, Headphones, Bell,
 } from "lucide-react";
 import { api } from "@/lib/api";
 
@@ -14,6 +14,7 @@ const NAV = [
   { href: "/support/bookings", icon: BookOpen, label: "Bookings" },
   { href: "/support/riders", icon: Users, label: "Riders" },
   { href: "/support/refunds", icon: RefreshCw, label: "Refunds" },
+  { href: "/support/notifications", icon: Bell, label: "Notifications" },
   { href: "/support/settings", icon: Settings, label: "Settings" },
 ];
 
@@ -58,6 +59,7 @@ export default function SupportLayout({ children }: { children: React.ReactNode 
     if (pathname === "/support/bookings") return "Bookings";
     if (pathname === "/support/riders") return "Riders";
     if (pathname === "/support/refunds") return "Refunds";
+    if (pathname === "/support/notifications") return "Notifications";
     if (pathname === "/support/settings") return "Settings";
     return "Support";
   };
