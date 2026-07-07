@@ -356,6 +356,48 @@ export default function TicketDetailPage() {
           </div>
         </div>
 
+        {/* Lost item report — reuses booking + driver_name/phone already
+            fetched/joined for every ticket, no separate data model. */}
+        {ticket.subject?.startsWith("Lost item —") && (() => {
+          const photoMatch = ticket.description?.match(/Photo: (\S+)/);
+          const photoUrl = photoMatch?.[1];
+          return (
+            <div className="bg-amber-50 border border-amber-200 rounded-xl p-5 space-y-3">
+              <p className="text-xs font-bold text-amber-700 uppercase tracking-wider">🧳 Lost Item Report</p>
+              {booking && (
+                <div className="text-sm text-gray-700">
+                  <p className="font-medium">
+                    {booking.service_name || "Ride"}
+                    {booking.completed_at ? ` · ${format(new Date(booking.completed_at), "d MMM, h:mm a")}` : ""}
+                  </p>
+                  {booking.pickup && booking.drop && (
+                    <p className="text-xs text-gray-500 mt-1">{booking.pickup.address} → {booking.drop.address}</p>
+                  )}
+                </div>
+              )}
+              {ticket.driver_name && (
+                <div className="flex items-center justify-between bg-white rounded-lg border border-amber-100 px-3 py-2">
+                  <div className="flex items-center gap-2 text-sm">
+                    <User size={14} className="text-gray-400 flex-shrink-0" />
+                    <span className="font-medium text-gray-800">{ticket.driver_name}</span>
+                  </div>
+                  {ticket.driver_phone && (
+                    <a href={`tel:${ticket.driver_phone}`}
+                      className="flex items-center gap-1 text-xs font-semibold text-amber-700 hover:underline">
+                      <Phone size={12} /> Call Driver
+                    </a>
+                  )}
+                </div>
+              )}
+              {photoUrl && (
+                <a href={photoUrl} target="_blank" rel="noopener noreferrer">
+                  <img src={photoUrl} alt="Lost item photo" className="rounded-lg border border-amber-100 max-h-40 object-cover" />
+                </a>
+              )}
+            </div>
+          );
+        })()}
+
         {/* User Info */}
         <div className="bg-white rounded-xl border border-gray-100 p-5 space-y-3">
           <p className="text-xs font-bold text-gray-400 uppercase tracking-wider">Raised By</p>
