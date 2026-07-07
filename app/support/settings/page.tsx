@@ -23,7 +23,7 @@ export default function SettingsPage() {
   const [editVal, setEditVal] = useState("");
   const [notifs, setNotifs] = useState({ urgent: true, assigned: true, digest: false });
 
-  const agentEmail = typeof window !== "undefined" ? localStorage.getItem("support_agent_email") || "support@gogoo.in" : "support@gogoo.in";
+  const agentEmail = typeof window !== "undefined" ? localStorage.getItem("support_agent_email") || "support@bogie.in" : "support@bogie.in";
 
   const updateProfile = () => toast.success("Profile updated");
   const updatePassword = () => {

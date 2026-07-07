@@ -132,7 +132,7 @@ export default function TicketDetailPage() {
   // booking, so a single slot (not a map) is enough. Reused unless the
   // driver has moved more than ~100m since the last lookup.
   const driverGeoRef = useRef<{ address: string; lat: number; lng: number } | null>(null);
-  const agentEmail = typeof window !== "undefined" ? localStorage.getItem("support_agent_email") || "support@gogoo.in" : "support@gogoo.in";
+  const agentEmail = typeof window !== "undefined" ? localStorage.getItem("support_agent_email") || "support@bogie.in" : "support@bogie.in";
 
   const fetchTicket = useCallback(async () => {
     try {
