@@ -4,7 +4,7 @@ import toast from "react-hot-toast";
 import { CheckCircle, XCircle } from "lucide-react";
 
 const QUICK_REPLIES_DEFAULT = [
-  "Thank you for contacting gogoo support. We are looking into your issue and will respond shortly.",
+  "Thank you for contacting bogie support. We are looking into your issue and will respond shortly.",
   "We have received your complaint and have escalated it to the relevant team.",
   "Your refund has been processed and will reflect in your account within 3-5 business days.",
   "Could you please provide more details about the issue you experienced?",

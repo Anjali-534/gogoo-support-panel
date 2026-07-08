@@ -75,7 +75,7 @@ export default function SupportLayout({ children }: { children: React.ReactNode 
               <Headphones size={15} className="text-white" />
             </div>
             <div>
-              <span className="text-gray-900 font-bold text-base tracking-tight">gogoo</span>
+              <span className="text-gray-900 font-bold text-base tracking-tight">bogie</span>
               <div className="mt-0.5">
                 <span className="text-[10px] font-bold text-purple-600 bg-purple-50 px-1.5 py-0.5 rounded-full tracking-wider uppercase">
                   Support

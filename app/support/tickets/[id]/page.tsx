@@ -86,7 +86,7 @@ async function fetchAddress(lat: number, lng: number): Promise<string> {
 }
 
 const QUICK_REPLIES = [
-  "Thank you for contacting gogoo support. We are looking into your issue and will respond shortly.",
+  "Thank you for contacting bogie support. We are looking into your issue and will respond shortly.",
   "We have received your complaint and have escalated it to the relevant team.",
   "Your refund has been processed and will reflect in your account within 3-5 business days.",
   "Could you please provide more details about the issue you experienced?",
@@ -607,7 +607,7 @@ export default function TicketDetailPage() {
                     isBot ? "text-gray-500" :
                     "text-gray-400"
                   }`}>
-                    {isBot ? "🤖 gogoo Assistant" : (msg.sender_name || msg.sender_type)}
+                    {isBot ? "🤖 bogie Assistant" : (msg.sender_name || msg.sender_type)}
                     <span className={`ml-1.5 px-1.5 py-0.5 rounded-full text-[9px] ${
                       isSupport ? "bg-purple-500 text-purple-100" :
                       isBot ? "bg-blue-100 text-blue-600" :

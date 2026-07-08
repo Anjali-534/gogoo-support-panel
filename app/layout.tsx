@@ -6,7 +6,7 @@ import { Toaster } from "react-hot-toast";
 const geist = Geist({ variable: "--font-geist-sans", subsets: ["latin"] });
 
 export const metadata: Metadata = {
-  title: "gogoo Support Center",
+  title: "bogie Support Center",
   description: "Customer Support Portal",
 };
 

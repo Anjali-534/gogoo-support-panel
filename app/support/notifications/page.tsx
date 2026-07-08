@@ -204,7 +204,7 @@ function ComposeForm({ onSent }: { onSent: () => void }) {
 
       {needsCoupon && (
         <input value={form.coupon_code} onChange={e => update("coupon_code", e.target.value.toUpperCase())}
-          placeholder="Coupon code e.g. GOGOO50" maxLength={20}
+          placeholder="Coupon code e.g. BOGIE50" maxLength={20}
           className="w-full px-4 py-2.5 text-sm bg-white border border-teal-300 rounded-xl focus:outline-none focus:border-teal-500 transition mb-3 font-mono tracking-widest text-teal-700" />
       )}
 

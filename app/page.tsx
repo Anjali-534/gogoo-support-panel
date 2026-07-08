@@ -40,7 +40,7 @@ export default function LoginPage() {
             <div className="w-16 h-16 bg-purple-600 rounded-2xl flex items-center justify-center mx-auto mb-4">
               <span className="text-3xl">🎧</span>
             </div>
-            <h1 className="text-2xl font-bold text-gray-900">gogoo Support Center</h1>
+            <h1 className="text-2xl font-bold text-gray-900">bogie Support Center</h1>
             <p className="text-purple-500 text-sm mt-1 font-medium">Customer Support Portal</p>
           </div>
 
@@ -77,7 +77,7 @@ export default function LoginPage() {
           </form>
 
           <p className="text-center text-xs text-gray-400 mt-6">
-            gogoo Support · Aggarwal Publicity and Marketing Pvt. Ltd.
+            bogie Support · Aggarwal Publicity and Marketing Pvt. Ltd.
           </p>
         </div>
       </div>
