@@ -4,8 +4,9 @@ import { useRouter, useSearchParams } from "next/navigation";
 import { api } from "@/lib/api";
 import toast from "react-hot-toast";
 import { formatDistanceToNow } from "date-fns";
-import { Plus, Eye, MessageSquare } from "lucide-react";
+import { Plus, Eye, MessageSquare, ChevronDown } from "lucide-react";
 import Pagination from "@/components/Pagination";
+import { DateRangeFilter, ScrollBody, rangeToParams, type DateRangeValue } from "@/components/TableControls";
 
 interface Ticket {
   id: string;
@@ -59,6 +60,11 @@ function TicketsContent() {
   const [priority, setPriority] = useState(searchParams.get("priority") || "");
   const [type, setType] = useState("");
   const [search, setSearch] = useState("");
+  // "priority" (default) preserves the existing urgent-first triage order —
+  // the newest/oldest sort toggle only kicks in once explicitly chosen, so
+  // adding it never silently changes what agents see by default.
+  const [sortMode, setSortMode] = useState<"priority" | "desc" | "asc">("priority");
+  const [dateRange, setDateRange] = useState<DateRangeValue>({ range: "all_time" });
   const [page, setPage] = useState(1);
   const [showModal, setShowModal] = useState(false);
   const [form, setForm] = useState({
@@ -70,10 +76,11 @@ function TicketsContent() {
   const fetchTickets = useCallback(async (silent = false) => {
     if (!silent) setLoading(true);
     try {
-      const params: Record<string, string> = {};
+      const params: Record<string, string> = { ...rangeToParams(dateRange) };
       if (status) params.status = status;
       if (priority) params.priority = priority;
       if (type) params.type = type;
+      if (sortMode !== "priority") params.sort = sortMode;
       const [ticketsRes, unreadRes] = await Promise.all([
         api.get("/gogoo/support/tickets", { params }),
         api.get("/gogoo/support/unread-count").catch(() => ({ data: { unread: 0 } })),
@@ -100,12 +107,13 @@ function TicketsContent() {
     } finally {
       setLoading(false);
     }
-  }, [status, priority, type]);
+  }, [status, priority, type, sortMode, dateRange]);
 
   useEffect(() => {
     prevUnreadRef.current = -1; // skip first-load flash
     fetchTickets();
   }, [fetchTickets]);
+  useEffect(() => { setPage(1); }, [status, priority, type, search, sortMode, dateRange]);
 
   // Auto-refresh every 10s
   useEffect(() => {
@@ -180,11 +188,23 @@ function TicketsContent() {
           ))}
         </div>
         <input
-          className="ml-auto border border-gray-200 rounded-xl px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-purple-500"
+          className="border border-gray-200 rounded-xl px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-purple-500"
           placeholder="Search ticket #, subject, rider..."
           value={search}
           onChange={e => { setSearch(e.target.value); setPage(1); }}
         />
+        <div className="relative ml-auto">
+          <select
+            value={sortMode}
+            onChange={e => setSortMode(e.target.value as "priority" | "desc" | "asc")}
+            className="appearance-none pl-3 pr-8 py-2 text-sm bg-white border border-gray-200 rounded-xl focus:outline-none text-gray-700 cursor-pointer"
+          >
+            <option value="priority">Priority (default)</option>
+            <option value="desc">Newest First</option>
+            <option value="asc">Oldest First</option>
+          </select>
+          <ChevronDown size={13} className="absolute right-2.5 top-1/2 -translate-y-1/2 text-gray-400 pointer-events-none" />
+        </div>
         <button
           onClick={() => setShowModal(true)}
           className="flex items-center gap-2 bg-purple-600 text-white px-4 py-2 rounded-xl text-sm font-medium hover:bg-purple-700 transition"
@@ -193,12 +213,16 @@ function TicketsContent() {
         </button>
       </div>
 
+      {/* Date range filter */}
+      <DateRangeFilter value={dateRange} onChange={setDateRange} />
+
       {/* Table */}
       <div className="bg-white rounded-xl border border-gray-100 overflow-hidden">
+        <ScrollBody>
         <table className="w-full text-sm">
-          <thead className="bg-gray-50 border-b border-gray-100">
+          <thead className="bg-gray-50 border-b border-gray-100 sticky top-0 z-10">
             <tr>
-              {["Ticket #", "Subject", "Type", "Raised By", "Priority", "Status", "Assigned", "Created", ""].map(h => (
+              {["#", "Ticket #", "Subject", "Type", "Raised By", "Priority", "Status", "Assigned", "Created", ""].map(h => (
                 <th key={h} className="px-4 py-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider">{h}</th>
               ))}
             </tr>
@@ -207,18 +231,19 @@ function TicketsContent() {
             {loading
               ? Array(8).fill(0).map((_, i) => (
                   <tr key={i} className="animate-pulse">
-                    {Array(9).fill(0).map((__, j) => (
+                    {Array(10).fill(0).map((__, j) => (
                       <td key={j} className="px-4 py-3"><div className="h-4 bg-gray-100 rounded" /></td>
                     ))}
                   </tr>
                 ))
               : paginated.length === 0
-              ? <tr><td colSpan={9} className="px-4 py-10 text-center text-gray-400">No tickets found</td></tr>
-              : paginated.map(t => (
+              ? <tr><td colSpan={10} className="px-4 py-10 text-center text-gray-400">No tickets found</td></tr>
+              : paginated.map((t, i) => (
                   <tr key={t.id}
                     className={`transition cursor-pointer ${isSOS(t) ? "bg-red-50 hover:bg-red-100 animate-pulse" : "hover:bg-purple-50"}`}
                     onClick={() => router.push(`/support/tickets/${t.id}`)}
                   >
+                    <td className="px-4 py-3 text-xs text-gray-400 font-medium">{(page - 1) * PAGE_SIZE + i + 1}</td>
                     <td className="px-4 py-3">
                       <div className="flex items-center gap-1.5">
                         <span className={`w-2 h-2 rounded-full flex-shrink-0 ${t.priority === "urgent" ? "bg-red-500" : t.priority === "high" ? "bg-orange-400" : t.priority === "medium" ? "bg-yellow-400" : "bg-gray-300"}`} />
@@ -279,6 +304,7 @@ function TicketsContent() {
             }
           </tbody>
         </table>
+        </ScrollBody>
         {filtered.length > PAGE_SIZE && (
           <div className="border-t border-gray-100 px-4 py-3">
             <Pagination total={filtered.length} pageSize={PAGE_SIZE} current={page} onChange={setPage} />

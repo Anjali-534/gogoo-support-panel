@@ -6,6 +6,7 @@ import toast from "react-hot-toast";
 import { format } from "date-fns";
 import { X, Copy, AlertCircle, Shield } from "lucide-react";
 import Pagination from "@/components/Pagination";
+import { DateRangeFilter, SortToggle, ScrollBody, rangeToParams, type DateRangeValue, type SortDir } from "@/components/TableControls";
 
 interface Rider {
   id: string;
@@ -31,6 +32,8 @@ export default function RidersPage() {
   const [riders, setRiders] = useState<Rider[]>([]);
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState("");
+  const [dateRange, setDateRange] = useState<DateRangeValue>({ range: "all_time" });
+  const [sortDir, setSortDir] = useState<SortDir>("desc");
   const [page, setPage] = useState(1);
   const [selected, setSelected] = useState<Rider | null>(null);
   const [showBlockModal, setShowBlockModal] = useState(false);
@@ -40,16 +43,17 @@ export default function RidersPage() {
   const fetchRiders = useCallback(async () => {
     setLoading(true);
     try {
-      const res = await api.get("/gogoo/riders");
+      const res = await api.get("/gogoo/riders", { params: { ...rangeToParams(dateRange), sort: sortDir } });
       setRiders(res.data.riders || res.data || []);
     } catch {
       setRiders([]);
     } finally {
       setLoading(false);
     }
-  }, []);
+  }, [dateRange, sortDir]);
 
   useEffect(() => { fetchRiders(); }, [fetchRiders]);
+  useEffect(() => { setPage(1); }, [search, dateRange, sortDir]);
 
   const filtered = riders.filter(r => {
     if (!search) return true;
@@ -115,21 +119,26 @@ export default function RidersPage() {
       </div>
 
       {/* Search */}
-      <div className="bg-white rounded-xl border border-gray-100 p-4">
+      <div className="bg-white rounded-xl border border-gray-100 p-4 flex items-center gap-3 flex-wrap">
         <input
           className="border border-gray-200 rounded-xl px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-purple-500 w-80"
           placeholder="Search by name, phone, email..."
           value={search}
-          onChange={e => { setSearch(e.target.value); setPage(1); }}
+          onChange={e => setSearch(e.target.value)}
         />
+        <SortToggle value={sortDir} onChange={setSortDir} />
       </div>
+
+      {/* Date range filter */}
+      <DateRangeFilter value={dateRange} onChange={setDateRange} />
 
       {/* Table */}
       <div className="bg-white rounded-xl border border-gray-100 overflow-hidden">
+        <ScrollBody>
         <table className="w-full text-sm">
-          <thead className="bg-gray-50 border-b border-gray-100">
+          <thead className="bg-gray-50 border-b border-gray-100 sticky top-0 z-10">
             <tr>
-              {["Name", "Phone", "Email", "Rides", "Spent", "Rating", "Status", "Last Ride", "Actions"].map(h => (
+              {["#", "Name", "Phone", "Email", "Rides", "Spent", "Rating", "Status", "Last Ride", "Actions"].map(h => (
                 <th key={h} className="px-4 py-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider">{h}</th>
               ))}
             </tr>
@@ -138,13 +147,14 @@ export default function RidersPage() {
             {loading
               ? Array(8).fill(0).map((_, i) => (
                   <tr key={i} className="animate-pulse">
-                    {Array(9).fill(0).map((__, j) => <td key={j} className="px-4 py-3"><div className="h-4 bg-gray-100 rounded" /></td>)}
+                    {Array(10).fill(0).map((__, j) => <td key={j} className="px-4 py-3"><div className="h-4 bg-gray-100 rounded" /></td>)}
                   </tr>
                 ))
               : paginated.length === 0
-              ? <tr><td colSpan={9} className="px-4 py-10 text-center text-gray-400">No riders found</td></tr>
-              : paginated.map(r => (
+              ? <tr><td colSpan={10} className="px-4 py-10 text-center text-gray-400">No riders found</td></tr>
+              : paginated.map((r, i) => (
                   <tr key={r.id} className="hover:bg-purple-50 transition cursor-pointer" onClick={() => setSelected(r)}>
+                    <td className="px-4 py-3 text-xs text-gray-400 font-medium">{(page - 1) * PAGE_SIZE + i + 1}</td>
                     <td className="px-4 py-3 font-medium text-gray-800 text-sm">{r.name || "—"}</td>
                     <td className="px-4 py-3 text-sm text-gray-700">{r.phone || "—"}</td>
                     <td className="px-4 py-3 text-xs text-gray-500 max-w-[140px] truncate">{r.email || "—"}</td>
@@ -182,6 +192,7 @@ export default function RidersPage() {
             }
           </tbody>
         </table>
+        </ScrollBody>
         {filtered.length > PAGE_SIZE && (
           <div className="border-t border-gray-100 px-4 py-3">
             <Pagination total={filtered.length} pageSize={PAGE_SIZE} current={page} onChange={setPage} />

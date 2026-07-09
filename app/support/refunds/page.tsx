@@ -5,6 +5,7 @@ import toast from "react-hot-toast";
 import { formatDistanceToNow } from "date-fns";
 import { DollarSign, CheckCircle, XCircle, Clock } from "lucide-react";
 import Pagination from "@/components/Pagination";
+import { DateRangeFilter, SortToggle, ScrollBody, rangeToParams, type DateRangeValue, type SortDir } from "@/components/TableControls";
 
 interface RefundTicket {
   id: string;
@@ -26,6 +27,8 @@ export default function RefundsPage() {
   const [tickets, setTickets] = useState<RefundTicket[]>([]);
   const [loading, setLoading] = useState(true);
   const [tab, setTab] = useState<"pending" | "approved" | "rejected">("pending");
+  const [dateRange, setDateRange] = useState<DateRangeValue>({ range: "all_time" });
+  const [sortDir, setSortDir] = useState<SortDir>("desc");
   const [page, setPage] = useState(1);
   const [approveModal, setApproveModal] = useState<RefundTicket | null>(null);
   const [rejectModal, setRejectModal] = useState<RefundTicket | null>(null);
@@ -36,16 +39,19 @@ export default function RefundsPage() {
   const fetchRefunds = useCallback(async () => {
     setLoading(true);
     try {
-      const res = await api.get("/gogoo/support/tickets", { params: { type: "refund_request" } });
+      const res = await api.get("/gogoo/support/tickets", {
+        params: { type: "refund_request", ...rangeToParams(dateRange), sort: sortDir },
+      });
       setTickets(res.data.tickets || []);
     } catch {
       setTickets([]);
     } finally {
       setLoading(false);
     }
-  }, []);
+  }, [dateRange, sortDir]);
 
   useEffect(() => { fetchRefunds(); }, [fetchRefunds]);
+  useEffect(() => { setPage(1); }, [tab, dateRange, sortDir]);
 
   const pending = tickets.filter(t => !t.refund_status || t.refund_status === "pending");
   const approved = tickets.filter(t => t.refund_status === "approved");
@@ -105,21 +111,28 @@ export default function RefundsPage() {
       </div>
 
       {/* Tabs */}
-      <div className="flex gap-1 bg-gray-100 rounded-xl p-1 w-fit">
-        {([["pending", "Pending"], ["approved", "Approved"], ["rejected", "Rejected"]] as const).map(([key, label]) => (
-          <button key={key} onClick={() => { setTab(key); setPage(1); }}
-            className={`px-4 py-2 rounded-lg text-sm font-medium transition ${tab === key ? "bg-white text-purple-600 shadow-sm" : "text-gray-500 hover:text-gray-700"}`}>
-            {label}
-          </button>
-        ))}
+      <div className="flex items-center justify-between flex-wrap gap-3">
+        <div className="flex gap-1 bg-gray-100 rounded-xl p-1 w-fit">
+          {([["pending", "Pending"], ["approved", "Approved"], ["rejected", "Rejected"]] as const).map(([key, label]) => (
+            <button key={key} onClick={() => setTab(key)}
+              className={`px-4 py-2 rounded-lg text-sm font-medium transition ${tab === key ? "bg-white text-purple-600 shadow-sm" : "text-gray-500 hover:text-gray-700"}`}>
+              {label}
+            </button>
+          ))}
+        </div>
+        <SortToggle value={sortDir} onChange={setSortDir} />
       </div>
+
+      {/* Date range filter */}
+      <DateRangeFilter value={dateRange} onChange={setDateRange} />
 
       {/* Table */}
       <div className="bg-white rounded-xl border border-gray-100 overflow-hidden">
+        <ScrollBody>
         <table className="w-full text-sm">
-          <thead className="bg-gray-50 border-b border-gray-100">
+          <thead className="bg-gray-50 border-b border-gray-100 sticky top-0 z-10">
             <tr>
-              {["Ticket", "Rider", "Booking", "Amount", "Reason", "Priority", "Requested", ...(tab === "pending" ? ["Actions"] : ["Status"])].map(h => (
+              {["#", "Ticket", "Rider", "Booking", "Amount", "Reason", "Priority", "Requested", ...(tab === "pending" ? ["Actions"] : ["Status"])].map(h => (
                 <th key={h} className="px-4 py-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider">{h}</th>
               ))}
             </tr>
@@ -128,13 +141,14 @@ export default function RefundsPage() {
             {loading
               ? Array(5).fill(0).map((_, i) => (
                   <tr key={i} className="animate-pulse">
-                    {Array(8).fill(0).map((__, j) => <td key={j} className="px-4 py-3"><div className="h-4 bg-gray-100 rounded" /></td>)}
+                    {Array(9).fill(0).map((__, j) => <td key={j} className="px-4 py-3"><div className="h-4 bg-gray-100 rounded" /></td>)}
                   </tr>
                 ))
               : paginated.length === 0
-              ? <tr><td colSpan={8} className="px-4 py-10 text-center text-gray-400">No {tab} refunds</td></tr>
-              : paginated.map(t => (
+              ? <tr><td colSpan={9} className="px-4 py-10 text-center text-gray-400">No {tab} refunds</td></tr>
+              : paginated.map((t, i) => (
                   <tr key={t.id} className="hover:bg-gray-50 transition">
+                    <td className="px-4 py-3 text-xs text-gray-400 font-medium">{(page - 1) * PAGE_SIZE + i + 1}</td>
                     <td className="px-4 py-3 font-mono text-xs text-purple-600">{t.ticket_number}</td>
                     <td className="px-4 py-3 text-xs">
                       <div className="font-medium text-gray-800">{t.rider_name || "—"}</div>
@@ -186,6 +200,7 @@ export default function RefundsPage() {
             }
           </tbody>
         </table>
+        </ScrollBody>
         {tabTickets.length > PAGE_SIZE && (
           <div className="border-t border-gray-100 px-4 py-3">
             <Pagination total={tabTickets.length} pageSize={PAGE_SIZE} current={page} onChange={setPage} />

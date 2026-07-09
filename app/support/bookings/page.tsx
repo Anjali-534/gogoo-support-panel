@@ -5,6 +5,7 @@ import toast from "react-hot-toast";
 import { formatDistanceToNow, format } from "date-fns";
 import { X, AlertCircle } from "lucide-react";
 import Pagination from "@/components/Pagination";
+import { DateRangeFilter, SortToggle, ScrollBody, rangeToParams, type DateRangeValue, type SortDir } from "@/components/TableControls";
 
 interface Booking {
   id: string;
@@ -57,6 +58,8 @@ export default function BookingsPage() {
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState("");
   const [statusFilter, setStatusFilter] = useState("");
+  const [dateRange, setDateRange] = useState<DateRangeValue>({ range: "all_time" });
+  const [sortDir, setSortDir] = useState<SortDir>("desc");
   const [page, setPage] = useState(1);
   const [selected, setSelected] = useState<Booking | null>(null);
   const [showCancelModal, setShowCancelModal] = useState(false);
@@ -66,16 +69,17 @@ export default function BookingsPage() {
   const fetchBookings = useCallback(async () => {
     setLoading(true);
     try {
-      const res = await api.get("/gogoo/bookings");
+      const res = await api.get("/gogoo/bookings", { params: { ...rangeToParams(dateRange), sort: sortDir } });
       setBookings(res.data.bookings || res.data || []);
     } catch {
       setBookings([]);
     } finally {
       setLoading(false);
     }
-  }, []);
+  }, [dateRange, sortDir]);
 
   useEffect(() => { fetchBookings(); }, [fetchBookings]);
+  useEffect(() => { setPage(1); }, [statusFilter, search, dateRange, sortDir]);
 
   const filtered = bookings.filter(b => {
     if (statusFilter && b.status !== statusFilter) return false;
@@ -139,14 +143,19 @@ export default function BookingsPage() {
             </button>
           ))}
         </div>
+        <SortToggle value={sortDir} onChange={setSortDir} />
       </div>
+
+      {/* Date range filter */}
+      <DateRangeFilter value={dateRange} onChange={setDateRange} />
 
       {/* Table */}
       <div className="bg-white rounded-xl border border-gray-100 overflow-hidden">
+        <ScrollBody>
         <table className="w-full text-sm">
-          <thead className="bg-gray-50 border-b border-gray-100">
+          <thead className="bg-gray-50 border-b border-gray-100 sticky top-0 z-10">
             <tr>
-              {["Booking ID", "Service", "Rider", "Driver", "Route", "Fare", "Status", "Source", "Time", "Actions"].map(h => (
+              {["#", "Booking ID", "Service", "Rider", "Driver", "Route", "Fare", "Status", "Source", "Time", "Actions"].map(h => (
                 <th key={h} className="px-4 py-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider">{h}</th>
               ))}
             </tr>
@@ -155,15 +164,16 @@ export default function BookingsPage() {
             {loading
               ? Array(8).fill(0).map((_, i) => (
                   <tr key={i} className="animate-pulse">
-                    {Array(10).fill(0).map((__, j) => (
+                    {Array(11).fill(0).map((__, j) => (
                       <td key={j} className="px-4 py-3"><div className="h-4 bg-gray-100 rounded" /></td>
                     ))}
                   </tr>
                 ))
               : paginated.length === 0
-              ? <tr><td colSpan={10} className="px-4 py-10 text-center text-gray-400">No bookings found</td></tr>
-              : paginated.map(b => (
+              ? <tr><td colSpan={11} className="px-4 py-10 text-center text-gray-400">No bookings found</td></tr>
+              : paginated.map((b, i) => (
                   <tr key={b.id} className="hover:bg-purple-50 transition cursor-pointer" onClick={() => setSelected(b)}>
+                    <td className="px-4 py-3 text-xs text-gray-400 font-medium">{(page - 1) * PAGE_SIZE + i + 1}</td>
                     <td className="px-4 py-3 font-mono text-xs text-gray-500">#{b.id?.slice(0, 8)}</td>
                     <td className="px-4 py-3 text-xs text-gray-700 capitalize">{b.service_type || "Cab"}</td>
                     <td className="px-4 py-3 text-xs">
@@ -207,6 +217,7 @@ export default function BookingsPage() {
             }
           </tbody>
         </table>
+        </ScrollBody>
         {filtered.length > PAGE_SIZE && (
           <div className="border-t border-gray-100 px-4 py-3">
             <Pagination total={filtered.length} pageSize={PAGE_SIZE} current={page} onChange={setPage} />
