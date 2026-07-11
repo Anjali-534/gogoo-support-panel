@@ -123,6 +123,12 @@ function ComposeForm({ onSent }: { onSent: () => void }) {
       toast.error(`Select at least one ${audience === "drivers" ? "driver" : "rider"}`);
       return;
     }
+    if (mode === "broadcast") {
+      const who = audience === "riders"
+        ? "ALL riders"
+        : category ? `ALL ${category} drivers` : "ALL drivers of every category";
+      if (!confirm(`Send this to ${who}? Everyone in this audience will get a push notification.`)) return;
+    }
     setSending(true);
     try {
       await api.post("/gogoo/admin/notifications", {
